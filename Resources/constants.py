@@ -34,13 +34,36 @@ else:
 DEFAULT_ENCODING = sys.getdefaultencoding()
 ENCODING = sys.getfilesystemencoding()
 
-if '/%s.app' % APP_NAME in os.getcwd():
-    RESOURCES_PATH = os.getcwd()
-    os.environ["LANG"] = "en_CA.UTF-8"
+# Determine the base path based on whether the app is frozen
+if getattr(sys, 'frozen', False) and hasattr(sys, '_MEIPASS'):
+    # Running in a PyInstaller bundle
+    # Data files added with 'Resources:Resources' should be in a 'Resources' subdir
+    RESOURCES_PATH = os.path.join(sys._MEIPASS, 'Resources') 
+    # If using 'Resources:.' the path would be just sys._MEIPASS
 else:
-    RESOURCES_PATH = os.path.join(os.getcwd(), 'Resources')
+    # Running as a normal script
+    try:
+        # Get the directory containing this constants.py file
+        _constants_dir = os.path.dirname(os.path.abspath(__file__))
+        # Assume Resources directory is at the same level as constants.py's parent (project root)
+        # This relies on constants.py being inside a subdirectory (like Resources)
+        _project_root = os.path.dirname(_constants_dir)
+        RESOURCES_PATH = os.path.abspath(os.path.join(_project_root, 'Resources'))
+    except NameError: # __file__ is not defined (e.g., interactive interpreter)
+         RESOURCES_PATH = os.path.abspath(os.path.join(os.getcwd(), 'Resources'))
+
+# Fallback/Verification (optional but recommended)
+if not os.path.isdir(RESOURCES_PATH):
+    print(f"Warning: Resources directory not found at expected path: {RESOURCES_PATH}")
+    # Attempt a fallback based on current working directory as a last resort
+    _fallback_path = os.path.abspath(os.path.join(os.getcwd(), 'Resources'))
+    if os.path.isdir(_fallback_path):
+        print(f"Warning: Falling back to CWD-based Resources path: {_fallback_path}")
+        RESOURCES_PATH = _fallback_path
+    # else: Could add an error exit here if Resources are critical
 
 if not os.path.isdir(RESOURCES_PATH) and sys.platform == "win32":
+    # This Windows specific logic might also need adjustment for frozen apps
     RESOURCES_PATH = os.path.join(os.getenv("ProgramFiles"), "Cecilia5", "Resources")
 
 TMP_PATH = os.path.join(os.path.expanduser('~'), '.cecilia5')
@@ -168,9 +191,9 @@ ICON_DOC_UP = catalog['up_24']
 
 # Audio drivers
 if sys.platform == 'darwin' and '/%s.app' % APP_NAME in os.getcwd():
-    AUDIO_DRIVERS = ['portaudio']
+    AUDIO_DRIVERS = ['core', 'portaudio']
 elif sys.platform == 'darwin':
-    AUDIO_DRIVERS = ['portaudio', 'jack']
+    AUDIO_DRIVERS = ['core', 'portaudio', 'jack']
 elif sys.platform == 'win32':
     AUDIO_DRIVERS = ['portaudio']
 else:

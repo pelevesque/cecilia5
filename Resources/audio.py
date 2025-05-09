@@ -19,7 +19,7 @@ along with Cecilia 5.  If not, see <http://www.gnu.org/licenses/>.
 """
 
 import wx
-import os, math, copy, time, traceback
+import os, math, copy, time, traceback, sys
 import Resources.CeciliaLib as CeciliaLib
 from .constants import *
 from .API_interface import *
@@ -1517,7 +1517,23 @@ class AudioServer():
             template = "sr: %s, buffer size: %s, num of channels: %s, duplex: %s, host: %s, output device: %s, input device: %s"
             print(template % (sr, bufsize, nchnls, duplex, host, outdev, indev))
             print("first physical input: %s, first physical output: %s\n" % (firstin, firstout))
-        self.server = Server(sr=sr, buffersize=bufsize, nchnls=nchnls, duplex=duplex, audio=host, jackname=jackname)
+        # Attempt to boot the pyo Server. On modern macOS, the PortAudio driver can
+        # fail because of missing permissions or deprecated back-end. If this
+        # happens we transparently fall back to the CoreAudio back-end and store
+        # the new preference so subsequent launches use the working driver.
+        try:
+            self.server = Server(sr=sr, buffersize=bufsize, nchnls=nchnls, duplex=duplex,
+                                 audio=host, jackname=jackname)
+        except Exception as e:
+            # Only attempt a fallback on macOS – re-raise on other platforms.
+            if sys.platform.startswith('darwin') and host != 'core':
+                print("[Cecilia] Primary audio driver '%s' failed (%s). Falling back to 'core'." % (host, e))
+                CeciliaLib.setVar('audioHostAPI', 'core')
+                host = 'core'
+                self.server = Server(sr=sr, buffersize=bufsize, nchnls=nchnls, duplex=duplex,
+                                     audio=host, jackname=jackname)
+            else:
+                raise
         if CeciliaLib.getVar("DEBUG"):
             self.server.verbosity = 15
         if host == 'jack':
