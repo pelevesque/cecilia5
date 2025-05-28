@@ -674,13 +674,20 @@ class CECSlider:
             self.openSndCtrl = None
             self.slider.setOpenSndCtrl("")
         else:
-            if type(value) == tuple:
+            if isinstance(value, tuple):  # Ensure tuple case is handled properly
                 msg = "%s:%s" % (value[0], value[1])
+            elif isinstance(value, list):  # Convert list to a properly formatted string
+                msg = ":".join(map(str, value))
             else:
-                msg = value
+                msg = str(value)  # Ensure msg is a string
             sep = msg.split(":")
-            port = int(sep[0].strip())
-            address = str(sep[1].strip())
+            if len(sep) != 2:  # Validate that we get exactly two parts
+                raise ValueError(f"Invalid OSC address format: {msg}")
+            try:
+                port = int(sep[0].strip())
+                address = str(sep[1].strip())
+            except ValueError:
+                raise ValueError(f"Invalid OSC address format: {msg}")
             self.openSndCtrl = (port, address)
             self.slider.setOpenSndCtrl("%d:%s" % (port, address))
             self.setMidiCtl(None)
@@ -689,14 +696,21 @@ class CECSlider:
         if value is None or value == "":
             self.OSCOut = None
         else:
-            if type(value) == tuple:
+            if isinstance(value, tuple):  # Handle tuple case properly
                 msg = "%s:%d:%s" % (value[0], value[1], value[2])
+            elif isinstance(value, list):  # Convert list to a properly formatted string
+                msg = ":".join(map(str, value))
             else:
-                msg = value
+                msg = str(value)  # Ensure msg is a string
             sep = msg.split(":")
-            host = str(sep[0].strip())
-            port = int(sep[1].strip())
-            address = str(sep[2].strip())
+            if len(sep) != 3:  # Validate that we get exactly three parts
+                raise ValueError(f"Invalid OSC output format: {msg}")
+            try:
+                host = str(sep[0].strip())
+                port = int(sep[1].strip())
+                address = str(sep[2].strip())
+            except ValueError:
+                raise ValueError(f"Invalid OSC host, port, or address: {msg}")
             self.OSCOut = (host, port, address)
 
     def getOpenSndCtrl(self):
